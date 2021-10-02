@@ -1,8 +1,6 @@
 import os
 import sys
 
-from typing import List
-
 # Logging
 import logging as l
 
@@ -11,9 +9,6 @@ import random
 
 # Handling configuration file
 import configparser
-
-# queue
-import queue
 
 # Audio playback and bitrate check
 import wave
@@ -24,8 +19,7 @@ from mutagen import mp3
 from PyQt5 import uic
 from PyQt5.QtGui import QFontDatabase, QFont, QKeyEvent
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QFile, QTimer, Qt
-from pygame.key import key_code
+from PyQt5.QtCore import QTimer, Qt
 
 # Serial connection handling
 import serial
@@ -42,12 +36,11 @@ class Ui(QMainWindow):
         super().__init__()
         uic.loadUi('data/window.ui', self)
 
-        # logger
+        # Logging.
         l.basicConfig()
         l.info('Starting program.')
 
-        # Used for serial connection to Arduino/RPi Pico
-        self.serial = serial.Serial()
+        self.serial = serial.Serial() # Used for serial connection to Arduino.
 
         # Used for playing music
         mixer.init()
@@ -116,7 +109,7 @@ class Ui(QMainWindow):
             self.config_parser.read('config.ini')
             l.info('Loaded custom config file.')
 
-        # Setting up some variables.
+        # Loading settings to variables.
         self.songs_directory: str = str(self.config_parser['Settings']['songs_directory'])
         self.serial_port: str = str(self.config_parser['Settings']['serial_port'])
         self.playback_time: int = int(self.config_parser['Rules']['playback_time'])
@@ -146,7 +139,7 @@ class Ui(QMainWindow):
     def team_pressed(self, n: int) -> None:
         if not self.is_team_guessing:
             if self.playback_state == self.S_PLAYING:
-                self.pause_playback() # Pausing playback of the song.
+                self.pause_playback() # Pausing playback of the song only if song is playing.
             
             self.is_team_guessing = True
             self.guessing_team = n
@@ -185,13 +178,13 @@ class Ui(QMainWindow):
         dialog: QDialog = Settings(self)
         dialog.exec_()
         l.info('Settings dialog closed.')
-        # TODO Load songs.
+        self.load_songs()
 
     def next_playback(self) -> None:
         if self.loaded_songs:
             song = self.loaded_songs.pop()
 
-            # defining song frequency to playback at right speed
+            # Defining song frequency to playback at right speed
             freq = 44100
             if song['extension'] == 'mp3':
                 file = mp3.MP3(song['path'])
@@ -314,13 +307,14 @@ class Ui(QMainWindow):
             if self.playback_state == self.S_PAUSED:
                 self.button_pause_resume.setEnabled(True)
 
-
-        # TODO
-        return
-
     def closeEvent(self, event) -> None:
-        # TODO Save settings and close program
-        return
+        self.config_parser['Settings']['songs_directory'] = str(self.songs_directory)
+        self.config_parser['Settings']['serial_port'] = str(self.serial_port)
+
+        self.config_parser['Rules']['playback_time'] = str(self.playback_time)
+
+        with open('config.ini', 'w') as file:
+            self.config_parser.write(file)
 
     def keyPressEvent(self, e: QKeyEvent) -> None:
         '''Handling keypresses'''
