@@ -1,4 +1,6 @@
-./venv
+venv
 config.ini
 .DS_Store
-./vscode
+.vscode
+songs
+cache
