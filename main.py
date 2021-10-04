@@ -142,10 +142,10 @@ class Ui(QMainWindow):
     def load_settings(self) -> None:
         '''Loads settings from custom or default config file and applies them.'''
         # TODO Check if init file exists
-        self.config.readfp(codecs.open("data/default.ini", "r", "utf8"))
+        self.config.read_file(codecs.open("data/default.ini", "r", "utf8"))
         # if there is custom config file it overwrites default settings
         if os.path.exists('config.ini'):
-            self.config.readfp(codecs.open("config.ini", "r", "utf8"))
+            self.config.read_file(codecs.open("config.ini", "r", "utf8"))
             l.info('Loaded custom config file.')
 
         # Loading settings to variables.
@@ -457,6 +457,9 @@ class Ui(QMainWindow):
         '''Handling keypresses'''
         if e.key() - Qt.Key.Key_1 in range(self.number_teams):
             self.team_pressed(e.key() - Qt.Key.Key_1)
+
+        # if e.key() == Qt.Key.Key_Space:
+        #     self.pause_resume( )
    
 
 
