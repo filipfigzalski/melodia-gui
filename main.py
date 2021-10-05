@@ -64,6 +64,7 @@ class Ui(QMainWindow):
         self.is_team_guessing: bool = False
         self.millis: int = 0  # Position of the song
         self.team_scores: list[int] = [0, 0, 0, 0, 0, 0]  # Scores of each team
+        self.arduino_connected = False
 
         # Loading widgets
         # Title of the song.
@@ -147,6 +148,9 @@ class Ui(QMainWindow):
         if os.path.exists('config.ini'):
             self.config.read_file(codecs.open("config.ini", "r", "utf8"))
             l.info('Loaded custom config file.')
+
+        if not os.path.exists('cache'):
+            os.mkdir('cache')
 
         # Loading settings to variables.
         self.songs_directory: str = str(
@@ -240,8 +244,10 @@ class Ui(QMainWindow):
             self.button_pause_resume.setEnabled(False)
 
     def update_serial(self) -> None:
-        # TODO Read incoming serial data and put it into queue.
-        return
+        if self.serial.inWaiting():
+            team = int(self.serial.read()) 
+            print(team)
+            self.team_pressed(team)
 
     def update_song(self) -> None:
         '''Updates progress bar and checks if song should be stopped.'''
@@ -490,7 +496,7 @@ class SettingsDialog(QDialog):
         self.button_connect.clicked.connect(self.connect_serial)
         self.button_save.clicked.connect(self.save_exit)
         self.button_directory.clicked.connect(self.open_directory)
-        # self.combobox_port.activated.connect(self.update_port)
+        self.combobox_port.activated.connect(self.update_port)
         self.input_songs_dir.returnPressed.connect(self.update_songs_dir)
         self.input_songs_dir.editingFinished.connect(self.update_songs_dir)
         self.slider_playback_time.valueChanged.connect(
@@ -500,6 +506,9 @@ class SettingsDialog(QDialog):
         self.slider_playback_time.setValue(self.parent.playback_time)
 
         self.update_ports(True)
+
+    def update_port(self):
+        self.parent.serial_port = self.combobox_port.currentText()
 
     def update_ports(self, get_from_parent: bool = False) -> None:
         ports = [port.device for port in list_ports.comports()]
@@ -514,27 +523,58 @@ class SettingsDialog(QDialog):
             self.button_connect.setEnabled(True)
 
     def connect_serial(self) -> None:
-        # TODO Opens serial connection to selected port.
-        return
+        if self.parent.arduino_connected:
+            self.parent.timer_serial.stop()
+            self.parent.arduino_connected = False
+            self.parent.serial.close()
+
+            self.button_connect.setText('Connect')
+            self.combobox_port.setEnabled(True)
+            self.button_refresh.setEnabled(True)
+
+            self.parent.label_status.setText('DISCONNECTED')
+        else:
+            try:
+                self.parent.serial.port = self.parent.serial_port
+                self.parent.serial.baudrate = 115200
+                self.parent.serial.parity = serial.PARITY_EVEN
+                self.parent.serial.stopbits = serial.STOPBITS_ONE
+                self.parent.serial.bytesize = serial.EIGHTBITS
+                self.parent.serial.open()
+            except Exception as e:
+                print(e)
+                return
+
+            self.parent.timer_serial.start(10)
+            self.parent.arduino_connected = True
+
+            self.button_connect.setText('Disconnect')
+            self.combobox_port.setEnabled(False)
+            self.button_refresh.setEnabled(False)
+
+            self.parent.label_status.setText('CONNECTED')
 
     def save_exit(self) -> None:
-        self.parent.playback_time = self.slider_playback_time.value()
-        self.parent.songs_directory = self.input_songs_dir.text()
         self.close()
 
     def open_directory(self) -> None:
         directory: str = str(
             QFileDialog.getExistingDirectory(self, 'Select Directory'))
         self.input_songs_dir.setText(directory)
+        self.parent.songs_directory = directory
 
     def update_songs_dir(self) -> None:
         directory: str = self.input_songs_dir.text()
         if not os.path.exists(directory):
             self.input_songs_dir.clear()
+            self.parent.songs_directory = ''
+        else:
+            self.parent.songs_directory = directory
 
     def update_playback_time(self) -> None:
         value: int = self.slider_playback_time.value()
         self.input_playback_time.setText(str(value))
+        self.parent.playback_time = value
 
     def closeEvent(self, event) -> None:
         self.save_exit()
